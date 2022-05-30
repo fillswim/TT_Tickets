@@ -25,36 +25,20 @@ public class App
         }
 
         Gson gson = new Gson();
-
         Tickets tickets = gson.fromJson(jsonString, Tickets.class);
-
-        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd.MM.yy");
-        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("H[H]:mm");
 
         ArrayList<Long> flightTimes = new ArrayList<>();
 
         for (Ticket ticket : tickets.tickets) {
 
-            // Departure
-            LocalDate departureLD = LocalDate.parse(ticket.departure_date, dayFormatter);
-            LocalTime departureLT = LocalTime.parse(ticket.departure_time, timeFormatter);
-            LocalDateTime departureLDT = LocalDateTime.of(departureLD, departureLT);
+            // Departure time
+            ZonedDateTime departureTime = concertFromStringToZonedDateTime(ticket.departure_date, ticket.departure_time, "Asia/Vladivostok");
 
-            ZoneId vvoZoneId = ZoneId.of("Asia/Vladivostok");
-            ZonedDateTime departureZDT = ZonedDateTime.of(departureLDT, vvoZoneId);
-
-
-            // Arrival
-            LocalDate arrivalLD = LocalDate.parse(ticket.arrival_date, dayFormatter);
-            LocalTime arrivalLT = LocalTime.parse(ticket.arrival_time, timeFormatter);
-            LocalDateTime arrivalLDT = LocalDateTime.of(arrivalLD, arrivalLT);
-
-            ZoneId tlvZoneId = ZoneId.of("Asia/Tel_Aviv");
-            ZonedDateTime arrivalZDT = ZonedDateTime.of(arrivalLDT, tlvZoneId);
-
+            // Arrival time
+            ZonedDateTime arrivalTime = concertFromStringToZonedDateTime(ticket.arrival_date, ticket.arrival_time, "Asia/Tel_Aviv");
 
             // Time difference in minutes
-            Long flightTimeInMinutes = ChronoUnit.MINUTES.between(departureZDT, arrivalZDT);
+            Long flightTimeInMinutes = ChronoUnit.MINUTES.between(departureTime, arrivalTime);
 
             flightTimes.add(flightTimeInMinutes);
         }
@@ -64,9 +48,7 @@ public class App
         int index = (int) Math.ceil(90 / 100.0 * flightTimes.size());
 
         // To hours:minutes
-        Duration durationPercentile = Duration.ofMinutes(flightTimes.get(index - 1));
-        LocalTime localTimePercentile = LocalTime.MIN.plus(durationPercentile);
-
+        LocalTime localTimePercentile = getHoursAndMinutesFromMinutes(flightTimes.get(index - 1));
 
         // Average time
         Double averageTime = flightTimes.stream().
@@ -75,10 +57,30 @@ public class App
                 orElse(0.0);
 
         // To hours:minutes
-        Duration durationAverageTime = Duration.ofMinutes((long) Math.round(averageTime));
-        LocalTime localTimeAverage = LocalTime.MIN.plus(durationAverageTime);
+        LocalTime localTimeAverage = getHoursAndMinutesFromMinutes((long) Math.round(averageTime));
 
         System.out.println("Average time: " + localTimeAverage +", percentile 90%: " + localTimePercentile);
+    }
 
+
+    private static ZonedDateTime concertFromStringToZonedDateTime(String date, String time, String zone) {
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("dd.MM.yy");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("H[H]:mm");
+
+        LocalDate localDate = LocalDate.parse(date, dayFormatter);
+        LocalTime localTime = LocalTime.parse(time, timeFormatter);
+
+        LocalDateTime localDateTime = LocalDateTime.of(localDate, localTime);
+
+        ZonedDateTime zonedDateTime = ZonedDateTime.of(localDateTime, ZoneId.of(zone));
+
+        return zonedDateTime;
+    }
+
+    private static LocalTime getHoursAndMinutesFromMinutes(Long minutes) {
+        Duration duration = Duration.ofMinutes(minutes);
+        LocalTime localTime = LocalTime.MIN.plus(duration);
+
+        return localTime;
     }
 }
